@@ -1,0 +1,52 @@
+name: Build DoseLite
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Collect
+        shell: bash
+        run: |
+          mkdir out
+          cp -r build/DoseLite_artefacts/Release/VST3/DoseLite.vst3 out/
+          cp -r build/DoseLite_artefacts/Release/Standalone/DoseLite.exe out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoseLite-Windows
+          path: out
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Sign (ad hoc, noetig fuer Apple Silicon)
+        run: |
+          for f in build/DoseLite_artefacts/Release/AU/DoseLite.component \
+                   build/DoseLite_artefacts/Release/VST3/DoseLite.vst3 \
+                   build/DoseLite_artefacts/Release/Standalone/DoseLite.app; do
+            codesign --force --deep -s - "$f"
+          done
+      - name: Collect
+        run: |
+          mkdir out
+          cp -R build/DoseLite_artefacts/Release/AU/DoseLite.component out/
+          cp -R build/DoseLite_artefacts/Release/VST3/DoseLite.vst3 out/
+          cp -R build/DoseLite_artefacts/Release/Standalone/DoseLite.app out/
+          cd out && zip -r -y ../DoseLite-macOS.zip . && cd ..
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoseLite-macOS
+          path: DoseLite-macOS.zip
